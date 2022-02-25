@@ -15,7 +15,9 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <maven.compiler.target>1.5</maven.compiler.target>
+        <maven.compiler.source>1.8</maven.compiler.source>
+        <maven.compiler.target>1.8</maven.compiler.target>
+        <skipTests>true</skipTests>
     </properties>
 
     <dependencies>
@@ -23,13 +25,6 @@
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
             <version>4.12</version>
-        </dependency>
-        <dependency>
-            <groupId>com.sun</groupId>
-            <artifactId>tools</artifactId>
-            <version>1.6.0</version>
-            <scope>system</scope>
-            <systemPath>${toolsjar}</systemPath>
         </dependency>
     </dependencies>
 
@@ -40,6 +35,7 @@
                 <artifactId>maven-jar-plugin</artifactId>
                 <version>2.4</version>
                 <configuration>
+                    <skipTests>true</skipTests>
                     <archive>
                         <manifest>
                             <mainClass>com.outlyer.jmx.jmxquery.JMXQuery</mainClass>
