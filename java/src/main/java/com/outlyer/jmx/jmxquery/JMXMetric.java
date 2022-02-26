@@ -1,14 +1,24 @@
 package com.outlyer.jmx.jmxquery;
 
 import java.util.HashMap;
+import java.util.Map;
+import java.util.Collection;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.management.ObjectName;
 import javax.management.openmbean.CompositeData;
 import javax.management.openmbean.TabularDataSupport;
+import javax.print.attribute.standard.JobStateReasons;
+
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+
+import netscape.javascript.JSException;
+import netscape.javascript.JSObject;
 
 /**
- * Stores parameters for a single metric query passed into command line in format:
+ * Stores parameters for a single metric query passed into command line in
+ * format:
  * 
  * {metricName}<{metricLabels}>=={mBeanName}/{attribute}/{attributeKey}
  * 
@@ -17,7 +27,7 @@ import javax.management.openmbean.TabularDataSupport;
  * @author David Gildeh (www.outlyer.com)
  */
 public class JMXMetric {
-    
+
     private String metricName = null;
     private HashMap<String, String> metricLabels = new HashMap<String, String>();
     private String mBeanName;
@@ -25,17 +35,17 @@ public class JMXMetric {
     private String attributeKey = null;
     private String attributeType = null;
     private Object value = null;
-    
+
     public JMXMetric(String mBeanName, String attribute, String attributeKey) {
         this.mBeanName = mBeanName;
         this.attribute = attribute;
         this.attributeKey = attributeKey;
     }
-    
+
     public JMXMetric(String metricQuery) throws ParseError {
         this.parseMetricQuery(metricQuery);
     }
-    
+
     public String getmetricName() {
         return metricName;
     }
@@ -43,11 +53,11 @@ public class JMXMetric {
     public void setmetricName(String metricName) {
         this.metricName = metricName;
     }
-    
+
     public HashMap<String, String> getmetricLabels() {
         return this.metricLabels;
     }
-    
+
     public void setmetricLabels(HashMap<String, String> metricLabels) {
         this.metricLabels.clear();
         this.metricLabels.putAll(metricLabels);
@@ -92,10 +102,10 @@ public class JMXMetric {
     /**
      * Will set type based on class instance of value
      * 
-     * @param value     The value to get the type for
+     * @param value The value to get the type for
      */
     public void setAttributeType(Object value) {
-        
+
         if (value instanceof String) {
             this.attributeType = "String";
         } else if (value == null) {
@@ -114,25 +124,27 @@ public class JMXMetric {
             this.attributeType = "Double";
         } else if (value instanceof Boolean) {
             this.attributeType = "Boolean";
+        } else if (value instanceof String[]) {
+            this.attributeType = "StringArray";
         } else {
             this.attributeType = value.getClass().getSimpleName();
         }
     }
-    
+
     /**
      * Forces the object to replace any tokens in metricName or metricLabels from
      * the mBean object properties, attribute or attributeKey. The following
      * tokens are replaced:
      * 
-     *  {attribute} - Will replace with this.attribute
-     *  {attributeKey} - Will replace with this.attributeKey
-     *  {XXX} - Will replace with any mBean object property with same name as XXX
+     * {attribute} - Will replace with this.attribute
+     * {attributeKey} - Will replace with this.attributeKey
+     * {XXX} - Will replace with any mBean object property with same name as XXX
      * 
      */
     public void replaceTokens() {
         // Only run if metricName isn't null
         if (this.metricName != null) {
-            
+
             HashMap<String, String> replacements = new HashMap<String, String>();
             if (this.attribute != null) {
                 replacements.put("attribute", this.attribute);
@@ -147,8 +159,8 @@ public class JMXMetric {
             for (int i = 0; i < props.length; i++) {
                 String[] parts = props[i].split("=");
                 replacements.put(parts[0], parts[1]);
-            } 
-                      
+            }
+
             // First replace tokens in metricName
             this.metricName = this.replaceTokens(this.metricName, replacements);
             // Then labels
@@ -161,14 +173,14 @@ public class JMXMetric {
             }
         }
     }
-    
+
     /**
-     * Replaces the text tokens in {} with values if found in the replacements 
+     * Replaces the text tokens in {} with values if found in the replacements
      * HashMap, otherwise just put the token name there instead
      * 
-     * @param text              The text to replace
-     * @param replacements      A HashMap of replacement tokens
-     * @return                  The final string with tokens replaced
+     * @param text         The text to replace
+     * @param replacements A HashMap of replacement tokens
+     * @return The final string with tokens replaced
      */
     private String replaceTokens(String text, HashMap<String, String> replacements) {
         // Looking for tokens in {}, i.e. {name}
@@ -188,8 +200,8 @@ public class JMXMetric {
         builder.append(text.substring(i, text.length()));
         // Remove all quotations and spaces from any replacements
         return builder.toString().replaceAll("\"", "").replaceAll(" ", "_");
-    } 
-    
+    }
+
     /**
      * Helper function to parse query string in following format and initialise
      * Metric class:
@@ -198,21 +210,22 @@ public class JMXMetric {
      * 
      * where {metricName}<{metricLabels}> is optional and can include tokens
      * 
-     * E.g. java_lang_{attribute}_{key}<type={type},label=key>==java.lang:type=Memory/HeapMemoryUsage/used;
+     * E.g.
+     * java_lang_{attribute}_{key}<type={type},label=key>==java.lang:type=Memory/HeapMemoryUsage/used;
      * 
-     * @param metricQuery 
+     * @param metricQuery
      */
     private void parseMetricQuery(String metricQuery) throws ParseError {
-        
+
         try {
             String query = metricQuery;
-            
+
             // metricName is optional
             if (metricQuery.indexOf("==") > 0) {
                 int seperator = metricQuery.indexOf("==");
                 String metricNamePart = query.substring(0, seperator);
                 query = query.substring(seperator + 2);
-                
+
                 // Parse metric name and labels
                 if (metricNamePart.indexOf("<") > 0) {
                     int labelSeperator = metricNamePart.indexOf("<");
@@ -220,7 +233,7 @@ public class JMXMetric {
                     String labelsPart = metricNamePart.substring(labelSeperator + 1).replace(">", "");
                     // This finds all commas which are not inside double quotes.
                     String[] labels = labelsPart.split("(?!\\B\"[^\"]*),(?![^\"]*\"\\B)");
-                    for (int i=0; i < labels.length; i++) {
+                    for (int i = 0; i < labels.length; i++) {
                         String[] parts = labels[i].split("=");
                         if (parts.length < 2) {
                             throw new ParseError("Label format " + labelsPart + " is invalid.");
@@ -239,7 +252,7 @@ public class JMXMetric {
 
             // This finds all commas which are not inside double quotes.
             String[] paths = query.split("(?!\\B\"[^\"]*),(?![^\"]*\"\\B)");
-            for (int i=0; i < paths.length - 1; i++) {
+            for (int i = 0; i < paths.length - 1; i++) {
                 beanName += paths[i] + ",";
             }
 
@@ -255,16 +268,16 @@ public class JMXMetric {
             if (parts.length > 2) {
                 this.attributeKey = parts[2];
             }
-            
+
         } catch (Exception e) {
-            throw new ParseError("Error Parsing Metic Query: " + metricQuery , e);
-        }       
+            throw new ParseError("Error Parsing Metic Query: " + metricQuery, e);
+        }
     }
-    
+
     @Override
     public String toString() {
         String s = "";
-        
+
         if (this.metricName != null) {
             s += this.metricName + "<";
             int keyCount = 0;
@@ -275,7 +288,7 @@ public class JMXMetric {
                 }
             }
             s += ">";
-            
+
         } else {
             s += this.mBeanName;
             if (this.attribute != null) {
@@ -291,52 +304,90 @@ public class JMXMetric {
         if (value != null) {
             s += " = " + value.toString();
         }
-        
+
         return s;
     }
-    
+
+    /**
+     * 
+     * @param val
+     * @return either Object or String representation of Object depending
+     *         on input value type
+     */
+    private static Object _valueForJSON(Object val) {
+        if (val.getClass().isPrimitive() ||
+                val instanceof String ||
+                val instanceof Integer ||
+                val instanceof Long ||
+                val instanceof Double ||
+                val instanceof Float ||
+                val instanceof Boolean) {
+            return val;
+        } else {
+            return val.toString();
+        }
+    }
+
     /**
      * Returns JSON representation of metric
      * 
-     * @return  JSON String
+     * @return JSON String
      */
+
     public String toJSON() {
 
-        String beanName = this.mBeanName.replace("\"", "\\\"");
+        JSONObject out = new JSONObject();
 
-        String json = "{";
+        out.put("mBeanName", this.mBeanName);
+
         if (this.metricName != null) {
-            json += "\"metricName\" : \"" + this.metricName + "\",";
-            json += "\"metricLabels\" : {";
-            int keyCount = 0;
-            for (String key : this.metricLabels.keySet()) {
-                json += "\"" + key + "\" : \"" + this.metricLabels.get(key) + "\"";
-                if (++keyCount < this.metricLabels.size()) {
-                    json += ",";
+            out.put("metricName", this.metricName);
+            out.put("metricLabels", this.metricLabels);
+        }
+
+        if (this.attributeType != null) {
+            out.put("attributeType", this.attributeType);
+        }
+
+        if (this.value == null) {
+            out.put("value", this.value);
+        } else if (this.value.getClass().isArray()) {
+            Class at = this.value.getClass().getComponentType();
+            JSONArray arr = new JSONArray();
+            if (at == int.class) {
+                for (int i : (int[]) this.value) {
+                    arr.add(Integer.valueOf(i));
+                }
+            } else if (at == long.class) {
+                for (long l : (long[]) this.value) {
+                    arr.add(Long.valueOf(l));
+                }
+            } else if (at == double.class) {
+                for (double d : (double[]) this.value) {
+                    arr.add(Double.valueOf(d));
+                }
+            } else if (at == short.class) {
+                for (short s : (short[]) this.value) {
+                    arr.add(Short.valueOf(s));
+                }
+            } else if (at == float.class) {
+                for (float f : (float[]) this.value) {
+                    arr.add(Float.valueOf(f));
+                }
+            } else if (at == boolean.class) {
+                for (boolean b : (boolean[]) this.value) {
+                    arr.add(Boolean.valueOf(b));
+                }
+            } else {
+                for (Object x : (Object[]) this.value) {
+                    arr.add(_valueForJSON(x));
                 }
             }
-            json += "},";
+            out.put("value", arr);
+        } else {
+            out.put("value", _valueForJSON(this.value));
         }
-        json += "\"mBeanName\" : \"" + beanName + "\"";
-        json += ", \"attribute\" : \"" + this.attribute + "\"";
-        if (this.attributeKey != null) {
-            json += ", \"attributeKey\" : \"" + this.attributeKey + "\"";
-        }
-        if (this.attributeType != null) {
-            json += ", \"attributeType\" : \"" + this.attributeType + "\"";
-        }
-        if (this.value != null) {
-            if ((this.value instanceof Integer) || 
-                    (this.value instanceof Long) || 
-                    (this.value instanceof Double) || 
-                    (this.value instanceof Boolean)) {
-                json += ", \"value\" : " + this.value.toString();
-            } else {
-                json += ", \"value\" : \"" + this.value.toString() + "\"";
-            }
-        }
-        json += "}";
 
-        return json;
+        return out.toJSONString();
     }
 }
