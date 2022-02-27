@@ -21,6 +21,7 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
 setup(
   name = 'jmxquery',
   packages = ['jmxquery'],
+  package_data={'jmxquery': ['*.jar']},
   version = '0.6.0',
   description = 'A JMX Interface for Python to Query runtime metrics in a JVM',
   long_description=long_description,
