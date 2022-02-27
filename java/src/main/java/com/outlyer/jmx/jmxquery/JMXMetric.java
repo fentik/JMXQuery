@@ -349,6 +349,8 @@ public class JMXMetric {
             out.put("attributeType", this.attributeType);
         }
 
+        out.put("attribute", this.attribute);
+
         if (this.value == null) {
             out.put("value", this.value);
         } else if (this.value.getClass().isArray()) {
